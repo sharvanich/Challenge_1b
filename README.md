@@ -85,6 +85,9 @@ challenge1b/
 5. **Run the LangGraph flow:**
 
    ```bash
+   python ingest.py
+   python answer.py --interactive
+   OR
    python langgraph_flow.py
    ```
 
