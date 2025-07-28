@@ -794,13 +794,6 @@ if __name__ == "__main__":
         print("\n✓ RAG Flow test completed successfully")
     else:
         print("\n✗ RAG Flow test failed")
-        {
-            "subsection_analysis": [],
-            "final_answer": f"Processing failed: {str(e)}",
-            "success": False,
-            "error": str(e),
-            "timestamp": datetime.now().isoformat()
-        }
 
 def create_rag_flow(db_path: Path = Path("db/faiss_store.pkl"),
                     model_path: str = "models/tinyllama",
