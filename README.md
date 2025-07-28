@@ -1,4 +1,4 @@
-# 📄 PDF Insight System - Adobe Challenge Round 1B
+# 📄 PDF Insight System - Adobe India Hackathon 2025 (Challenge 1b)
 
 This project processes a collection of PDFs and extracts structured, searchable, and relevant answers for user-defined tasks using a lightweight LLM and LangGraph flow. It is optimized to work offline with local models (TinyLlama or MiniLM) and FAISS-based retrieval.
 
