@@ -842,12 +842,6 @@ if __name__ == "__main__":
             print("\n✗ Full test failed")
     else:
         print("\n✗ Quick test failed, skipping full test")
-                "subsection_analysis": [],
-                "final_answer": f"Processing failed: {str(e)}",
-                "success": False,
-                "error": str(e),
-                "timestamp": datetime.now().isoformat()
-            }
 
 def create_rag_flow(db_path: Path = Path("db/faiss_store.pkl"),
                     model_path: str = "models/tinyllama",
@@ -872,14 +866,4 @@ def process_documents(input_data: Dict[str, Any],
         return rag_flow.process_with_persona(input_data)
     except Exception as e:
         logger.error(f"Error in document processing: {e}")
-        return {
-            "metadata": {
-                "error_details": str(e),
-                "input_documents": [],
-                "persona": "",
-                "job_to_be_done": "",
-                "success": False,
-                "processing_timestamp": datetime.now().isoformat()
-            },
-            "extracted_sections": [],
-            "
+        return -1
