@@ -38,9 +38,12 @@ except ImportError:
             # Mock retrieval results
             mock_chunks = [
                 Chunk(f"Sample content for query: {query}", "document1.pdf", 1),
-                Chunk(f"Additional relevant content", "document2.pdf", 2),
+                Chunk(f"Additional relevant content for technical requirements", "document2.pdf", 2),
+                Chunk(f"Implementation guidelines and best practices", "document1.pdf", 3),
+                Chunk(f"Risk assessment and mitigation strategies", "document2.pdf", 4),
+                Chunk(f"Budget considerations and resource allocation", "document1.pdf", 5),
             ]
-            return [RetrievalResult(chunk, 0.8) for chunk in mock_chunks]
+            return [RetrievalResult(chunk, 0.8 - i*0.1) for i, chunk in enumerate(mock_chunks)]
     
     # Mock torch for compatibility
     class torch:
@@ -711,6 +714,47 @@ Your comprehensive response:"""
                     "success": False
                 },
                 "extracted_sections": [],
+                "subsection_analysis": [],
+                "final_answer": f"Processing failed: {str(e)}",
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
+
+# Factory function - Define this BEFORE the test functions
+def create_rag_flow(db_path: Path = Path("db/faiss_store.pkl"),
+                    model_path: str = "models/tinyllama",
+                    retrieval_k: int = 8) -> GeneralizedRAGFlow:
+    """Create a generalized RAG flow instance"""
+    return GeneralizedRAGFlow(db_path, model_path, retrieval_k)
+
+def process_documents(input_data: Dict[str, Any], 
+                     db_path: Path = Path("db/faiss_store.pkl")) -> Dict[str, Any]:
+    """
+    Process documents with persona-based analysis
+    
+    Args:
+        input_data: Dictionary containing challenge_info, documents, persona, and job_to_be_done
+        db_path: Path to the FAISS database
+    
+    Returns:
+        Dictionary with analysis results in the specified format
+    """
+    try:
+        rag_flow = create_rag_flow(db_path)
+        return rag_flow.process_with_persona(input_data)
+    except Exception as e:
+        logger.error(f"Error in document processing: {e}")
+        return {
+            "metadata": {
+                "input_documents": [doc.get('filename', 'unknown') for doc in input_data.get('documents', [])],
+                "persona": input_data.get('persona', {}).get('role', ''),
+                "job_to_be_done": input_data.get('job_to_be_done', {}).get('task', ''),
+                "error_details": str(e),
+                "processing_timestamp": datetime.now().isoformat(),
+                "success": False
+            },
+            "extracted_sections": [],
             "subsection_analysis": [],
             "final_answer": f"Processing failed: {str(e)}",
             "success": False,
@@ -750,6 +794,42 @@ def create_sample_input() -> Dict[str, Any]:
         }
     }
 
+def run_quick_test():
+    """Quick test that can be run directly"""
+    print("=== Quick RAG Flow Test ===")
+    
+    # Test PersonaAwareLLM mock
+    llm = PersonaAwareLLM()
+    test_response = llm.generate("Test prompt for analysis", max_length=100)
+    print(f"✓ LLM Mock Test: {test_response[:50]}...")
+    
+    # Test sample input creation
+    sample_input = create_sample_input()
+    print(f"✓ Sample Input Created: {sample_input['persona']['role']}")
+    
+    # Test RAG flow creation
+    try:
+        rag_flow = create_rag_flow()
+        print("✓ RAG Flow Created Successfully")
+        
+        # Test processing
+        result = rag_flow.process_with_persona(sample_input)
+        print(f"✓ Processing Complete: Success={result['success']}")
+        
+        if result['success']:
+            print(f"  - Extracted {len(result['extracted_sections'])} sections")
+            print(f"  - Generated {len(result['final_answer'])} character response")
+        else:
+            print(f"  - Error: {result.get('error', 'Unknown')}")
+            
+        return True
+        
+    except Exception as e:
+        print(f"✗ Test Failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
 def test_rag_flow():
     """Test the RAG flow with sample data"""
     sample_input = create_sample_input()
@@ -786,39 +866,59 @@ def test_rag_flow():
         traceback.print_exc()
         return None
 
-def run_quick_test():
-    """Quick test that can be run directly"""
-    print("=== Quick RAG Flow Test ===")
+def run_comprehensive_test():
+    """Run a comprehensive test with different personas"""
+    print("=== Comprehensive RAG Flow Test ===")
     
-    # Test PersonaAwareLLM mock
-    llm = PersonaAwareLLM()
-    test_response = llm.generate("Test prompt for analysis", max_length=100)
-    print(f"✓ LLM Mock Test: {test_response[:50]}...")
+    # Test with different personas
+    personas = [
+        {
+            "role": "Technical Project Manager",
+            "expertise": "Software development, project planning, risk assessment",
+            "context": "Leading a team to implement a new technical solution"
+        },
+        {
+            "role": "Software Architect",
+            "expertise": "System design, technical architecture, scalability",
+            "context": "Designing robust and scalable software systems"
+        },
+        {
+            "role": "Business Analyst",
+            "expertise": "Requirements analysis, stakeholder management, process optimization",
+            "context": "Bridging business needs with technical solutions"
+        }
+    ]
     
-    # Test sample input creation
-    sample_input = create_sample_input()
-    print(f"✓ Sample Input Created: {sample_input['persona']['role']}")
+    base_input = create_sample_input()
+    results = []
     
-    # Test RAG flow creation
-    try:
-        rag_flow = create_rag_flow()
-        print("✓ RAG Flow Created Successfully")
+    for i, persona in enumerate(personas):
+        print(f"\n--- Testing Persona {i+1}: {persona['role']} ---")
         
-        # Test processing
-        result = rag_flow.process_with_persona(sample_input)
-        print(f"✓ Processing Complete: Success={result['success']}")
+        # Update input with new persona
+        test_input = base_input.copy()
+        test_input['persona'] = persona
+        test_input['job_to_be_done']['task'] = f"Analyze documents from the perspective of a {persona['role']} to extract relevant insights"
         
-        if result['success']:
-            print(f"  - Extracted {len(result['extracted_sections'])} sections")
-            print(f"  - Generated {len(result['final_answer'])} character response")
-        else:
-            print(f"  - Error: {result.get('error', 'Unknown')}")
+        try:
+            rag_flow = create_rag_flow()
+            result = rag_flow.process_with_persona(test_input)
             
-        return True
-        
-    except Exception as e:
-        print(f"✗ Test Failed: {e}")
-        return False
+            print(f"Success: {result['success']}")
+            if result['success']:
+                print(f"Sections extracted: {len(result['extracted_sections'])}")
+                print(f"Response length: {len(result['final_answer'])} characters")
+                results.append(result)
+            else:
+                print(f"Error: {result.get('error', 'Unknown')}")
+                
+        except Exception as e:
+            print(f"Test failed for {persona['role']}: {e}")
+    
+    print(f"\n=== Summary ===")
+    print(f"Successfully tested {len(results)} out of {len(personas)} personas")
+    
+    return results
 
 if __name__ == "__main__":
     # Set up basic logging
@@ -836,34 +936,12 @@ if __name__ == "__main__":
         print("Running Full Test...")
         test_result = test_rag_flow()
         
-        if test_result:
+        if test_result and test_result['success']:
+            print("\n" + "="*50)
+            print("Running Comprehensive Test...")
+            comprehensive_results = run_comprehensive_test()
             print("\n✓ All tests completed successfully")
         else:
-            print("\n✗ Full test failed")
+            print("\n✗ Full test failed, skipping comprehensive test")
     else:
-        print("\n✗ Quick test failed, skipping full test")
-
-def create_rag_flow(db_path: Path = Path("db/faiss_store.pkl"),
-                    model_path: str = "models/tinyllama",
-                    retrieval_k: int = 8) -> GeneralizedRAGFlow:
-    """Create a generalized RAG flow instance"""
-    return GeneralizedRAGFlow(db_path, model_path, retrieval_k)
-
-def process_documents(input_data: Dict[str, Any], 
-                     db_path: Path = Path("db/faiss_store.pkl")) -> Dict[str, Any]:
-    """
-    Process documents with persona-based analysis
-    
-    Args:
-        input_data: Dictionary containing challenge_info, documents, persona, and job_to_be_done
-        db_path: Path to the FAISS database
-    
-    Returns:
-        Dictionary with analysis results in the specified format
-    """
-    try:
-        rag_flow = create_rag_flow(db_path)
-        return rag_flow.process_with_persona(input_data)
-    except Exception as e:
-        logger.error(f"Error in document processing: {e}")
-        return -1
+        print("\n✗ Quick test failed, skipping other tests")
