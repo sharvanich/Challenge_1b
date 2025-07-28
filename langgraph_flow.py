@@ -755,8 +755,9 @@ def test_rag_flow():
     sample_input = create_sample_input()
     
     try:
-        # Test the main processing function
-        result = process_documents(sample_input)
+        # Create RAG flow directly and test
+        rag_flow = create_rag_flow()
+        result = rag_flow.process_with_persona(sample_input)
         
         print("=== RAG Flow Test Results ===")
         print(f"Success: {result['success']}")
@@ -773,12 +774,51 @@ def test_rag_flow():
             
             print(f"\n=== Final Answer (first 200 chars) ===")
             print(result['final_answer'][:200] + "..." if len(result['final_answer']) > 200 else result['final_answer'])
+        else:
+            print(f"\n=== Error Details ===")
+            print(result.get('error', 'Unknown error'))
         
         return result
         
     except Exception as e:
         print(f"Test failed: {e}")
+        import traceback
+        traceback.print_exc()
         return None
+
+def run_quick_test():
+    """Quick test that can be run directly"""
+    print("=== Quick RAG Flow Test ===")
+    
+    # Test PersonaAwareLLM mock
+    llm = PersonaAwareLLM()
+    test_response = llm.generate("Test prompt for analysis", max_length=100)
+    print(f"✓ LLM Mock Test: {test_response[:50]}...")
+    
+    # Test sample input creation
+    sample_input = create_sample_input()
+    print(f"✓ Sample Input Created: {sample_input['persona']['role']}")
+    
+    # Test RAG flow creation
+    try:
+        rag_flow = create_rag_flow()
+        print("✓ RAG Flow Created Successfully")
+        
+        # Test processing
+        result = rag_flow.process_with_persona(sample_input)
+        print(f"✓ Processing Complete: Success={result['success']}")
+        
+        if result['success']:
+            print(f"  - Extracted {len(result['extracted_sections'])} sections")
+            print(f"  - Generated {len(result['final_answer'])} character response")
+        else:
+            print(f"  - Error: {result.get('error', 'Unknown')}")
+            
+        return True
+        
+    except Exception as e:
+        print(f"✗ Test Failed: {e}")
+        return False
 
 if __name__ == "__main__":
     # Set up basic logging
@@ -787,13 +827,27 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Run test
-    test_result = test_rag_flow()
+    # Run quick test first
+    print("Running Quick Test...")
+    quick_success = run_quick_test()
     
-    if test_result:
-        print("\n✓ RAG Flow test completed successfully")
+    if quick_success:
+        print("\n" + "="*50)
+        print("Running Full Test...")
+        test_result = test_rag_flow()
+        
+        if test_result:
+            print("\n✓ All tests completed successfully")
+        else:
+            print("\n✗ Full test failed")
     else:
-        print("\n✗ RAG Flow test failed")
+        print("\n✗ Quick test failed, skipping full test")
+                "subsection_analysis": [],
+                "final_answer": f"Processing failed: {str(e)}",
+                "success": False,
+                "error": str(e),
+                "timestamp": datetime.now().isoformat()
+            }
 
 def create_rag_flow(db_path: Path = Path("db/faiss_store.pkl"),
                     model_path: str = "models/tinyllama",
@@ -828,4 +882,4 @@ def process_documents(input_data: Dict[str, Any],
                 "processing_timestamp": datetime.now().isoformat()
             },
             "extracted_sections": [],
-            }
+            "
